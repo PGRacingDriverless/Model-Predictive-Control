@@ -103,7 +103,7 @@ class FG_eval {
       AD<double> psides0 = CppAD::atan(derivative);
 
       // Get next values
-      double latency = 0.1;
+      double latency = 0.0;
       fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * (dt + latency));
       fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * (dt + latency));
       fg[1 + psi_start + t] = psi1 - (psi0 - v0 * delta0 / Lf * (dt + latency) );  // To turn to correct orientation
@@ -151,6 +151,12 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   Dvector vars_lowerbound(n_vars);
   Dvector vars_upperbound(n_vars);
+
+  /*
+    * Setting bounds only for actuations [delta, a]
+    */
+
+  // set all of the variables unbounded
   for (int i = 0; i < delta_start; i++) {
     vars_lowerbound[i] = -1.0e19;
     vars_upperbound[i] = 1.0e19;
@@ -162,11 +168,20 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     vars_upperbound[i] = 0.436332;
   }
 
-  // For a
+  // For a (break max -> -1, throttle max -> 1)
   for (int i = a_start; i < n_vars; i++) {
     vars_lowerbound[i] = -1.0;
     vars_upperbound[i] = 1.0;
   }
+
+  /*
+  * Setting constraints
+  * I think the section below requires comments.
+  * The initial state constraints are explicitly set to values of the current state.
+  * All of the other constraints are set to 0 -> One might ask why? Thats because FG_eval calculates
+  * differences between the variables calculated by optimizer and model predictions. Optimizer decisions
+  * should be as close as possible to the model predictions. That's why the constraints are set to 0.
+  */
 
   // Lower and upper limits for the constraints
   // Should be 0 besides initial state.
