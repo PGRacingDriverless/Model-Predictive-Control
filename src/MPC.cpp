@@ -10,28 +10,38 @@ using CppAD::AD;
   The goal is to optimize the control inputs: [δ, a]
 */
 
-// T = N * dt should be as large as possible
-size_t N = 10; 
-double dt = 0.1; // This should be as small as possible
-
-// This is the length from front to CoG that has a similar radius.
-const double Lf = 2.67;
-
-size_t x_start = 0;
-size_t y_start = x_start + N;
-size_t psi_start = y_start + N;
-size_t v_start = psi_start + N;
-size_t cte_start = v_start + N;
-size_t epsi_start = cte_start + N;
-size_t delta_start = epsi_start + N;
-size_t a_start = delta_start + N - 1;
-double reference_v = 70;
-
 
 class FG_eval {
- public:
+private:
+  size_t N; // number of timesteps in the horizon
+  float dt; // time step duration
+  float Lf; // distance between the front of the vehicle and its center of gravity
+  float ref_velocity; // reference velocity
+  size_t x_start;
+  size_t y_start;
+  size_t psi_start;
+  size_t v_start;
+  size_t cte_start;
+  size_t epsi_start;
+  size_t delta_start;
+  size_t a_start;
+public:
   Eigen::VectorXd coeffs;
-  FG_eval(Eigen::VectorXd coeffs) { this->coeffs = coeffs; }
+  FG_eval(Eigen::VectorXd coeffs, size_t N, float dt, float Lf, float ref_velocity) {
+    this->N = N;
+    this->dt = dt;
+    this->Lf = Lf;
+    this->ref_velocity = ref_velocity;
+    this->x_start = 0;
+    this->y_start = x_start + N;
+    this->psi_start = y_start + N;
+    this->v_start = psi_start + N;
+    this->cte_start = v_start + N;
+    this->epsi_start = cte_start + N;
+    this->delta_start = epsi_start + N;
+    this->a_start = delta_start + N - 1;
+    this->coeffs = coeffs; 
+  }
 
   typedef CPPAD_TESTVECTOR(AD<double>) ADvector;
   void operator()(ADvector& fg, const ADvector& vars) {
@@ -117,7 +127,36 @@ class FG_eval {
 //
 // MPC class definition implementation.
 //
-MPC::MPC() {}
+MPC::MPC(size_t N, float dt, float Lf, float ref_velocity) {
+  this->N = N;
+  this->dt = dt;
+  this->Lf = Lf;
+  this->ref_velocity = ref_velocity;
+  this->x_start = 0;
+  this->y_start = x_start + N;
+  this->psi_start = y_start + N;
+  this->v_start = psi_start + N;
+  this->cte_start = v_start + N;
+  this->epsi_start = cte_start + N;
+  this->delta_start = epsi_start + N;
+  this->a_start = delta_start + N - 1;
+}
+
+MPC::MPC() {
+  this->N = 10;
+  this->dt = 0.1;
+  this->Lf = 0.95;
+  this->ref_velocity = 5.0;
+  this->x_start = 0;
+  this->y_start = x_start + N;
+  this->psi_start = y_start + N;
+  this->v_start = psi_start + N;
+  this->cte_start = v_start + N;
+  this->epsi_start = cte_start + N;
+  this->delta_start = epsi_start + N;
+  this->a_start = delta_start + N - 1;
+}
+
 MPC::~MPC() {}
 
 vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
@@ -206,7 +245,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   constraints_upperbound[epsi_start] = epsi;
 
   // object that computes objective and constraints
-  FG_eval fg_eval(coeffs);
+  FG_eval fg_eval(coeffs, this->N, this->dt, this->Lf, this->ref_velocity);
 
   // options for IPOPT solver
   std::string options;
